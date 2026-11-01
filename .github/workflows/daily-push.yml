@@ -1,0 +1,35 @@
+name: daily-push
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # wakes up every hour (UTC), commits once per day at a random hour
+  workflow_dispatch:        # manual "Run workflow" button, commits immediately
+
+permissions:
+  contents: write
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Commit once a day at a random hour
+        run: |
+          TODAY=$(date -u +%F)
+          HOUR=$(date -u +%-H)
+          # random-looking hour (0-23) for today, different every day
+          TARGET=$(( $(echo "$TODAY" | cksum | cut -d' ' -f1) % 24 ))
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ "$HOUR" -lt "$TARGET" ]; then echo "Not time yet (target $TARGET UTC)"; exit 0; fi
+            if grep -q "^$TODAY" log.txt 2>/dev/null; then echo "Already pushed today"; exit 0; fi
+          fi
+
+          echo "$TODAY $(date -u +%T) $RANDOM" >> log.txt
+
+          git config user.name  "ahmedmalik07"
+          git config user.email "ahmed.usman7615@gmail.com"
+          git add log.txt
+          git commit -m "update $TODAY"
+          git push
